@@ -97,23 +97,26 @@ async function searchStudent() {
 
     // 3. 교재 내역
     const cols = CONFIG.STUDENT_COLS;
-    const classes = [
-      currentStudent[cols.CLASS],
+
+    // 수강반 (관+반 매칭 필요)
+    const mainClasses = [currentStudent[cols.CLASS]]
+      .filter(v => v && String(v).trim() !== '' && String(v).trim() !== '-');
+
+    // 탐구반 (반 이름만 매칭)
+    const tanguClasses = [
       currentStudent[cols.탐구1],
       currentStudent[cols.탐구2],
       currentStudent[cols.탐구1_1],
       currentStudent[cols.탐구2_1],
     ].filter(v => v && String(v).trim() !== '' && String(v).trim() !== '-');
-
-    const enrollDate = currentStudent[cols.ENROLL_DATE] || '';
-    const leaveDate  = currentStudent[cols.LEAVE_DATE]  || '';
-
-    setTableLoading('textbookTableBody', 10);
-    setTableLoading('sdaiTableBody', 9);
-
+    
+    const building = currentStudent[cols.BUILDING] || '';
+    
     const tbRes = await callScript({
-      action: 'getTextbooks',
-      classes: JSON.stringify(classes),
+      action:       'getTextbooks',
+      mainClasses:  JSON.stringify(mainClasses),   // ← 분리
+      tanguClasses: JSON.stringify(tanguClasses),  // ← 분리
+      building,
       enrollDate,
       leaveDate,
     });
