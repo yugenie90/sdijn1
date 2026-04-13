@@ -847,7 +847,14 @@ a { text-decoration: none; color: inherit; }
   .data-table th, .data-table td { padding: 7px 10px; font-size: 0.8rem; }
 
   .note-print { font-size: 0.78rem; color: #666; }
+  
+  @page { size: A4 landscape; margin: 10mm; }
 
+  .data-table th.col-code,
+  .data-table td.code-cell { display: none !important; }
+
+  .data-table th,
+  .data-table td { font-size: 0.72rem !important; padding: 6px 8px !important; }
   body { background: #fff; }
 }
 
