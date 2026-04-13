@@ -11,6 +11,7 @@ const STUDENT_COLS = {
   ID:          '학번',
   STUDENT_ID:  '학생ID',
   NAME:        '학생명',
+  BUILDING:    '관',        // ← 추가
   CLASS:       '반',
   PARENT_TEL:  '학부모연락처',
   STUDENT_TEL: '학생연락처',
@@ -25,6 +26,7 @@ const STUDENT_COLS = {
 };
 
 const TEXTBOOK_COLS = {
+  BUILDING:   '관',         // ← 추가
   DATE_START: '배부시작일',
   DATE_END:   '배부종료일',
   DATE:       '날짜',
