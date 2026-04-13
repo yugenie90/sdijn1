@@ -60,10 +60,12 @@ function doGet(e) {
       return jsonResponse(getStudentInfo(e.parameter.studentId));
     }
     if (action === 'getTextbooks') {
-      const classes    = JSON.parse(e.parameter.classes || '[]');
-      const enrollDate = e.parameter.enrollDate || '';
-      const leaveDate  = e.parameter.leaveDate  || '';
-      return jsonResponse(getTextbooks(classes, enrollDate, leaveDate));
+      const mainClasses  = JSON.parse(e.parameter.mainClasses  || '[]');
+      const tanguClasses = JSON.parse(e.parameter.tanguClasses || '[]');
+      const building     = e.parameter.building   || '';
+      const enrollDate   = e.parameter.enrollDate || '';
+      const leaveDate    = e.parameter.leaveDate  || '';
+      return jsonResponse(getTextbooks(mainClasses, tanguClasses, building, enrollDate, leaveDate));
     }
     if (action === 'getClassChanges') {
       return jsonResponse(getClassChanges(e.parameter.studentId));
