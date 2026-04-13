@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>퇴원생 교재 정산 · 학원 업무 관리</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+</head>
+<body class="settlement-body">
+
+  <div class="bg-grid"></div>
+
+  <header class="main-header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-mark">A</div>
+        <div class="logo-text-wrap">
+          <span class="logo-title">학원 업무 관리</span>
+          <span class="logo-sub">Academy Management System</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="header-date" id="currentDate"></span>
+        <button class="btn-back" onclick="location.href='index.html'">
+          ← 메인으로
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="settlement-main">
+
+    <!-- 인쇄용 헤더 (화면에는 안보임) -->
+    <div class="print-header">
+      <h1 style="font-size:1.4rem; font-weight:700; margin-bottom:4px;">퇴원생 교재 정산서</h1>
+      <p style="font-size:0.85rem; color:#666;" id="printDate"></p>
+      <hr style="margin:12px 0; border-color:#ccc;">
+    </div>
+
+    <!-- 페이지 타이틀 -->
+    <div class="page-title-bar">
+      <p class="page-eyebrow">퇴원생 업무</p>
+      <h1 class="page-title">교재 정산</h1>
+    </div>
+
+    <!-- 구글 시트 연동 설정 -->
+    <div class="settings-panel">
+      <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">
+        <span>⚙️ 구글 시트 연동 설정</span>
+        <span class="settings-toggle-icon" id="settingsIcon">▼</span>
+      </button>
+      <div class="settings-body" id="settingsBody">
+        <p class="settings-hint">
+          Google Apps Script Web App URL을 입력하세요.
+          설정 방법은 함께 제공된 <strong>README.md</strong>를 참고하세요.
+          URL은 브라우저에 자동으로 저장됩니다.
+        </p>
+        <div class="input-group">
+          <input type="url" class="input-full" id="scriptUrl"
+            placeholder="https://script.google.com/macros/s/..."
+            oninput="saveScriptUrl()">
+          <button class="btn btn-outline btn-sm" onclick="testConnection()">연결 테스트</button>
+        </div>
+        <div class="conn-status" id="connStatus">
+          <div class="conn-dot" id="connDot"></div>
+          <span id="connText">URL을 입력하면 연결 상태를 확인할 수 있습니다</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 학번 검색 -->
+    <div class="search-bar">
+      <div class="form-field">
+        <label class="form-label">학번</label>
+        <input type="text" class="input-main" id="studentIdInput"
+          placeholder="학번을 입력하세요 (예: 2025001)"
+          onkeydown="if(event.key==='Enter') searchStudent()">
+      </div>
+      <button class="btn btn-primary btn-icon" id="searchBtn" onclick="searchStudent()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        조회
+      </button>
+    </div>
+
+    <!-- 학생 정보 카드 -->
+    <div class="student-card" id="studentCard">
+      <div class="student-card-header">
+        <span class="student-card-title">학생 정보</span>
+        <span id="studentName" style="font-size:1rem; font-weight:700; color:var(--navy);"></span>
+      </div>
+      <div class="student-info-grid" id="studentInfoGrid"></div>
+    </div>
+
+    <!-- 교재 배부 내역 테이블 -->
+    <div class="section-card" id="textbookSection">
+      <div class="section-card-header">
+        <span class="section-card-title">
+          교재 배부 내역
+          <span class="count-badge" id="textbookCount">0</span>
+        </span>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-outline btn-sm" onclick="toggleFlaggedOnly()" id="flagFilterBtn">
+            이상 내역만 보기
+          </button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="textbookTable">
+          <thead>
+            <tr>
+              <th style="width:42px;">이상</th>
+              <th>배부일</th>
+              <th>교재코드</th>
+              <th>교재명</th>
+              <th>과목</th>
+              <th>반</th>
+              <th>강사</th>
+              <th style="text-align:right;">가격</th>
+              <th>비고</th>
+            </tr>
+          </thead>
+          <tbody id="textbookTableBody">
+            <tr>
+              <td colspan="9">
+                <div class="table-placeholder">
+                  <div class="placeholder-icon">📚</div>
+                  <p>학번을 입력하고 조회하면 교재 내역이 표시됩니다</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 정산 요약 -->
+    <div class="summary-section" id="summarySection">
+      <div class="summary-title">정산 요약</div>
+
+      <div class="summary-grid">
+        <div>
+          <div class="summary-row">
+            <span class="summary-label">총 교재 수</span>
+            <span class="summary-value" id="sumTotalCount">0권</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">이상 내역 수</span>
+            <span class="summary-value red" id="sumFlagCount">0건</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">정상 교재 합계</span>
+            <span class="summary-value" id="sumNormalAmount">₩0</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">이상 교재 합계</span>
+            <span class="summary-value red" id="sumFlagAmount">₩0</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">전체 교재 합계</span>
+            <span class="summary-value" id="sumTotalAmount">₩0</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="refund-area">
+            <p style="font-size:0.78rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#987020; margin-bottom:12px;">환불 처리</p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div class="refund-row">
+                <span class="refund-label">환불 금액</span>
+                <div class="refund-inputs">
+                  <input type="number" class="input-money" id="refundAmount" placeholder="0" min="0" oninput="calcFinal()">
+                  <span style="font-size:0.85rem; color:var(--navy);">원</span>
+                </div>
+              </div>
+              <div class="refund-row">
+                <span class="refund-label">공제 금액</span>
+                <div class="refund-inputs">
+                  <input type="number" class="input-money" id="deductAmount" placeholder="0" min="0" oninput="calcFinal()">
+                  <span style="font-size:0.85rem; color:var(--navy);">원</span>
+                </div>
+              </div>
+              <div style="font-size:0.75rem; color:#987020; line-height:1.4;">
+                ※ 환불 금액에서 공제 금액을 뺀 최종 환불액이 계산됩니다
+              </div>
+            </div>
+          </div>
+
+          <div class="total-box">
+            <span class="total-label">최종 환불 예정액</span>
+            <span class="total-value" id="finalAmount">₩0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 메모 -->
+      <div style="margin-top:12px;">
+        <label class="form-label">정산 메모</label>
+        <textarea
+          id="settlementMemo"
+          style="width:100%; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); font-family:var(--font-body); font-size:0.85rem; resize:vertical; min-height:60px; background:var(--bg);"
+          placeholder="특이사항, 처리 내용 등을 기록하세요..."></textarea>
+      </div>
+    </div>
+
+    <!-- 액션 버튼 -->
+    <div class="action-bar" id="actionBar">
+      <button class="btn btn-outline btn-icon" onclick="resetAll()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.48"/>
+        </svg>
+        초기화
+      </button>
+      <button class="btn btn-amber btn-icon" onclick="window.print()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        인쇄 / PDF 저장
+      </button>
+    </div>
+
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/settlement.js"></script>
+</body>
+</html>
