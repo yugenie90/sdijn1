@@ -328,10 +328,27 @@ function renderTextbookTable(tbodyId, books, group, colspan, isSdai) {
     return;
   }
 
+  // 반납 기준일: 퇴원일 있으면 퇴원일, 없으면 오늘
+  const cols = CONFIG.STUDENT_COLS;
+  const leaveStr = currentStudent && currentStudent[cols.LEAVE_DATE];
+  const refDate  = leaveStr ? new Date(leaveStr) : new Date();
+
   tbody.innerHTML = books.map((book, idx) => {
     const checked = receiveStates[group][idx] !== false;
-    const note    = noteValues[group][idx] || '';
     const price   = Number(book[tc.PRICE]) || 0;
+
+    // 반납가능 여부 (강사교재만, sdai 제외)
+    let autoNote = noteValues[group][idx] || '';
+    if (!isSdai && !autoNote) {
+      const startDate = book[tc.DATE_START] ? new Date(book[tc.DATE_START]) : null;
+      if (startDate) {
+        const diffDays = Math.floor((refDate - startDate) / (1000 * 60 * 60 * 24));
+        if (diffDays < 14) autoNote = '반납가능';
+      }
+    }
+    if (!noteValues[group][idx] && autoNote === '반납가능') {
+      noteValues[group][idx] = autoNote;
+    }
 
     return `
     <tr id="${group}-row-${idx}" class="${checked ? '' : 'row-unchecked'}">
@@ -343,14 +360,16 @@ function renderTextbookTable(tbodyId, books, group, colspan, isSdai) {
       <td class="date-cell">${book[tc.DATE_START] || '-'}</td>
       <td class="date-cell">${book[tc.DATE_END]   || '-'}</td>
       <td class="code-cell">${book[tc.CODE]        || '-'}</td>
-      <td class="cell-name"><strong>${book[tc.NAME]    || '-'}</strong></td>
+      <td class="cell-name"><strong>${book[tc.NAME] || '-'}</strong></td>
       <td>${book[tc.SUBJECT] || '-'}</td>
       <td>${book[tc.CLASS]   || '-'}</td>
       ${!isSdai ? `<td>${book[tc.TEACHER] || '-'}</td>` : ''}
       <td class="price-cell" style="text-align:right;">${price.toLocaleString()}원</td>
       <td class="cell-note">
-        <input type="text" class="note-input" placeholder="비고..."
-          value="${note}"
+        <input type="text" class="note-input"
+          placeholder="비고..."
+          value="${autoNote}"
+          style="${autoNote === '반납가능' ? 'color:var(--green);font-weight:600;' : ''}"
           onchange="noteValues['${group}'][${idx}] = this.value">
       </td>
     </tr>`;
@@ -366,68 +385,96 @@ function toggleReceive(group, idx, checked) {
 }
 
 // ── 정산 요약 ──────────────────────────────────────────────────
-// 수강반 과목으로 묶을 과목명 목록
 const MAIN_SUBJECTS = ['국어', '영어', '수학', '논술'];
 
 function renderSummary() {
   const tc = CONFIG.TEXTBOOK_COLS;
-  const subjectMap = {};
-  let mainSubjectTotal = 0; // 국어/영어/수학/논술 합계
-  let totalAmount = 0;
-  let sdaiAmount  = 0;
-  let totalCount  = 0;
 
-  function addToMap(subject, price, suffix) {
+  // 강사교재 과목별 집계
+  const teacherMap = {};
+  let teacherMain  = 0;
+  let teacherTotal = 0;
+
+  // 시대인재 과목별 집계
+  const sdaiMap    = {};
+  let sdaiMain     = 0;
+  let sdaiTotal    = 0;
+
+  let totalCount   = 0;
+
+  function addToMap(map, mainRef, subject, price, suffix) {
     const isMain = MAIN_SUBJECTS.some(s => subject.includes(s));
     if (isMain) {
-      mainSubjectTotal += price;
+      mainRef.val += price;
     } else {
       const key = suffix ? `${subject} ${suffix}` : subject;
-      subjectMap[key] = (subjectMap[key] || 0) + price;
+      map[key] = (map[key] || 0) + price;
     }
-    totalAmount += price;
-    totalCount++;
   }
 
+  // 강사교재 (regular + prev)
+  const teacherMainRef = { val: 0 };
   regularBooks.forEach((book, idx) => {
     if (!receiveStates.regular[idx]) return;
-    addToMap(String(book[tc.SUBJECT] || '기타').trim(), Number(book[tc.PRICE]) || 0, null);
+    const price = Number(book[tc.PRICE]) || 0;
+    addToMap(teacherMap, teacherMainRef, String(book[tc.SUBJECT] || '기타').trim(), price, null);
+    teacherTotal += price;
+    totalCount++;
   });
-
   previousBooks.forEach((book, idx) => {
     if (!receiveStates.prev[idx]) return;
-    addToMap(String(book[tc.SUBJECT] || '기타').trim(), Number(book[tc.PRICE]) || 0, '(변경 전)');
+    const price = Number(book[tc.PRICE]) || 0;
+    addToMap(teacherMap, teacherMainRef, String(book[tc.SUBJECT] || '기타').trim(), price, '(변경 전)');
+    teacherTotal += price;
+    totalCount++;
   });
+  teacherMain = teacherMainRef.val;
 
+  // 시대인재 콘텐츠
+  const sdaiMainRef = { val: 0 };
   sdaiBooks.forEach((book, idx) => {
     if (!receiveStates.sdai[idx]) return;
     const price = Number(book[tc.PRICE]) || 0;
-    // 시대인재는 별도 합계에만 포함, 과목별에는 표시 안 함
-    sdaiAmount  += price;
-    totalAmount += price;
+    addToMap(sdaiMap, sdaiMainRef, String(book[tc.SUBJECT] || '기타').trim(), price, null);
+    sdaiTotal += price;
     totalCount++;
   });
+  sdaiMain = sdaiMainRef.val;
 
-  // 수강반 합계 행 맨 위에 추가
-  const orderedEntries = [];
-  if (mainSubjectTotal > 0) {
-    orderedEntries.push(['국어 / 영어 / 수학 / 논술', mainSubjectTotal]);
+  const grandTotal = teacherTotal + sdaiTotal;
+
+  // 행 생성 헬퍼
+  function makeRows(mainAmt, map, subtotal, label, color) {
+    const rows = [];
+    if (mainAmt > 0) rows.push(`
+      <div class="summary-row">
+        <span class="summary-label">국어 / 영어 / 수학 / 논술</span>
+        <span class="summary-value">${formatMoney(mainAmt)}</span>
+      </div>`);
+    Object.entries(map).sort((a,b)=>b[1]-a[1]).forEach(([s,a]) => rows.push(`
+      <div class="summary-row">
+        <span class="summary-label">${s}</span>
+        <span class="summary-value">${formatMoney(a)}</span>
+      </div>`));
+    rows.push(`
+      <div class="summary-row summary-subtotal">
+        <span class="summary-label" style="font-weight:700;color:${color};">${label} 합계</span>
+        <span class="summary-value" style="color:${color};">${formatMoney(subtotal)}</span>
+      </div>`);
+    return rows.join('');
   }
-  Object.entries(subjectMap).sort((a, b) => b[1] - a[1]).forEach(e => orderedEntries.push(e));
 
-  document.getElementById('subjectSummary').innerHTML =
-    orderedEntries.length
-      ? orderedEntries.map(([subject, amount]) => `
-          <div class="summary-row">
-            <span class="summary-label">${subject}</span>
-            <span class="summary-value">${formatMoney(amount)}</span>
-          </div>`).join('')
-      : '<div class="summary-row"><span class="summary-label" style="color:#aaa;">내역 없음</span></div>';
+  document.getElementById('subjectSummary').innerHTML = `
+    <div class="summary-section-label">강사 교재</div>
+    ${makeRows(teacherMain, teacherMap, teacherTotal, '강사 교재', 'var(--navy)')}
+    <div class="summary-section-label" style="margin-top:16px;">시대인재 콘텐츠</div>
+    ${makeRows(sdaiMain, sdaiMap, sdaiTotal, '시대인재 콘텐츠', 'var(--amber-dark)')}
+    <div class="summary-row summary-grandtotal">
+      <span class="summary-label">전체 합계</span>
+      <span class="summary-value">${formatMoney(grandTotal)}</span>
+    </div>`;
 
-  document.getElementById('sumTotalAmount').textContent = formatMoney(totalAmount);
-  document.getElementById('sumSdaiAmount').textContent  = formatMoney(sdaiAmount);
-  document.getElementById('sumTotalCount').textContent  = totalCount + '권';
-
+  document.getElementById('sumTotalCount').textContent = totalCount + '권';
   calcFinal();
 }
 
@@ -478,7 +525,62 @@ function resetAll() {
   showToast('초기화되었습니다.');
 }
 
-// ── 유틸 ───────────────────────────────────────────────────────
+// ── 엑셀 내보내기 ──────────────────────────────────────────────
+function exportToExcel() {
+  if (!currentStudent) return showToast('먼저 학생을 조회해주세요.');
+  const tc   = CONFIG.TEXTBOOK_COLS;
+  const cols = CONFIG.STUDENT_COLS;
+  const name = currentStudent[cols.NAME] || '학생';
+  const id   = currentStudent[cols.ID]   || '';
+
+  const header = ['배부여부','배부시작일','배부종료일','교재코드','교재명','과목','반','강사','가격','비고','구분'];
+
+  const toRow = (book, idx, group, label) => {
+    const checked = receiveStates[group][idx] !== false ? 'O' : 'X';
+    const note    = noteValues[group][idx] || '';
+    return [
+      checked,
+      book[tc.DATE_START] || '',
+      book[tc.DATE_END]   || '',
+      book[tc.CODE]       || '',
+      book[tc.NAME]       || '',
+      book[tc.SUBJECT]    || '',
+      book[tc.CLASS]      || '',
+      book[tc.TEACHER]    || '',
+      Number(book[tc.PRICE]) || 0,
+      note,
+      label,
+    ];
+  };
+
+  const rows = [
+    [`퇴원생 교재 정산 — ${name} (${id})`],
+    [`출력일: ${new Date().toLocaleDateString('ko-KR')}`],
+    [],
+    header,
+    ...regularBooks.map((b, i) => toRow(b, i, 'regular', '강사교재')),
+    ...previousBooks.map((b, i) => toRow(b, i, 'prev',    '강사교재(변경전)')),
+    ...sdaiBooks.map((b, i)     => toRow(b, i, 'sdai',    '시대인재')),
+  ];
+
+  // CSV 생성
+  const csv = rows.map(row =>
+    row.map(cell => {
+      const s = String(cell).replace(/"/g, '""');
+      return /[,"\n]/.test(s) ? `"${s}"` : s;
+    }).join(',')
+  ).join('\n');
+
+  const bom  = '\uFEFF'; // 한글 깨짐 방지
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `교재정산_${name}_${id}_${new Date().toLocaleDateString('ko-KR').replace(/\. /g,'-').replace('.','')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV 파일로 저장됐어요. 엑셀에서 열 수 있어요!');
+}
 function formatMoney(v) {
   return '₩' + Number(v).toLocaleString('ko-KR');
 }
