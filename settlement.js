@@ -149,8 +149,8 @@ async function searchStudent() {
     if (classChanges.length > 0) {
       setTableLoading('prevTableBody', 11);
       const prevRes = await callScript({
-        action:       'getPreviousTextbooks',
-        classChanges: JSON.stringify(classChanges),
+        action:    'getPreviousTextbooks',
+        studentId,
         enrollDate,
         building,
       });
