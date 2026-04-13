@@ -7,9 +7,10 @@
 let currentStudent = null;
 let regularBooks   = [];
 let sdaiBooks      = [];
+let previousBooks  = [];   // 수강변경 전 교재
 
-const receiveStates = { regular: {}, sdai: {} };
-const noteValues    = { regular: {}, sdai: {} };
+const receiveStates = { regular: {}, sdai: {}, prev: {} };
+const noteValues    = { regular: {}, sdai: {}, prev: {} };
 
 // ── 초기화 ─────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -92,7 +93,8 @@ async function searchStudent() {
 
     // 2. 수강변경내역 조회
     const changeRes = await callScript({ action: 'getClassChanges', studentId });
-    renderClassChanges(changeRes.changes || []);
+    const classChanges = changeRes.changes || [];
+    renderClassChanges(classChanges);
 
     // 3. 교재 내역 조회
     const cols = CONFIG.STUDENT_COLS;
@@ -143,6 +145,24 @@ async function searchStudent() {
     document.getElementById('textbookCount').textContent = regularBooks.length;
     document.getElementById('sdaiCount').textContent     = sdaiBooks.length;
 
+    // 4. 수강변경 전 교재 조회
+    if (classChanges.length > 0) {
+      setTableLoading('prevTableBody', 11);
+      const prevRes = await callScript({
+        action:       'getPreviousTextbooks',
+        classChanges: JSON.stringify(classChanges),
+        enrollDate,
+        building,
+      });
+      previousBooks = prevRes.previous || [];
+      previousBooks.forEach((_, i) => { receiveStates.prev[i] = true; });
+      renderPreviousTable(previousBooks);
+      document.getElementById('prevCount').textContent = previousBooks.length;
+    } else {
+      previousBooks = [];
+      renderTableEmpty('prevTableBody', 11, '수강변경 내역이 없습니다.');
+    }
+
     renderSummary();
     showResultSections();
 
@@ -160,10 +180,13 @@ async function searchStudent() {
 function resetReceiveStates() {
   receiveStates.regular = {};
   receiveStates.sdai    = {};
+  receiveStates.prev    = {};
   noteValues.regular    = {};
   noteValues.sdai       = {};
-  regularBooks.forEach((_, i) => { receiveStates.regular[i] = true; });
-  sdaiBooks.forEach((_, i)    => { receiveStates.sdai[i]    = true; });
+  noteValues.prev       = {};
+  regularBooks.forEach((_, i)  => { receiveStates.regular[i] = true;  });
+  sdaiBooks.forEach((_, i)     => { receiveStates.sdai[i]    = true;  });
+  previousBooks.forEach((_, i) => { receiveStates.prev[i]    = false; }); // 기본 미체크
 }
 
 // ── 학생 카드 ──────────────────────────────────────────────────
@@ -242,7 +265,46 @@ function renderClassChanges(changes) {
   }).join('');
 }
 
-// ── 교재 테이블 ────────────────────────────────────────────────
+// ── 수강변경 전 교재 테이블 ────────────────────────────────────
+function renderPreviousTable(books) {
+  const tbody = document.getElementById('prevTableBody');
+  const tc    = CONFIG.TEXTBOOK_COLS;
+
+  if (!books.length) {
+    renderTableEmpty('prevTableBody', 11, '수강변경 전 교재 배부 내역이 없습니다');
+    return;
+  }
+
+  tbody.innerHTML = books.map((book, idx) => {
+    const checked = receiveStates.prev[idx] !== false;
+    const note    = noteValues.prev[idx] || '';
+    const price   = Number(book[tc.PRICE]) || 0;
+    const isSdai  = book['_isSdai'];
+
+    return `
+    <tr id="prev-row-${idx}" class="${checked ? '' : 'row-unchecked'}${isSdai ? ' sdai-row' : ''}">
+      <td style="text-align:center;">
+        <input type="checkbox" class="flag-checkbox"
+          ${checked ? 'checked' : ''}
+          onchange="toggleReceive('prev', ${idx}, this.checked)">
+      </td>
+      <td class="date-cell">${book[tc.DATE_START] || '-'}</td>
+      <td class="date-cell">${book[tc.DATE_END]   || '-'}</td>
+      <td class="code-cell">${book[tc.CODE]        || '-'}</td>
+      <td class="cell-name"><strong>${book[tc.NAME] || '-'}</strong>${isSdai ? ' <span style="font-size:0.7rem;color:var(--amber-dark);">[시대인재]</span>' : ''}</td>
+      <td>${book[tc.SUBJECT] || '-'}</td>
+      <td>${book[tc.CLASS]   || '-'}</td>
+      <td>${book[tc.TEACHER] || '-'}</td>
+      <td style="font-size:0.75rem;color:var(--text-muted);">${book['_changeLabel'] || '-'}</td>
+      <td class="price-cell" style="text-align:right;">${price.toLocaleString()}원</td>
+      <td class="cell-note">
+        <input type="text" class="note-input" placeholder="비고..."
+          value="${note}"
+          onchange="noteValues['prev'][${idx}] = this.value">
+      </td>
+    </tr>`;
+  }).join('');
+}
 function setTableLoading(tbodyId, colspan) {
   document.getElementById(tbodyId).innerHTML = `
     <tr><td colspan="${colspan}">
@@ -304,35 +366,58 @@ function toggleReceive(group, idx, checked) {
 }
 
 // ── 정산 요약 ──────────────────────────────────────────────────
+// 수강반 과목으로 묶을 과목명 목록
+const MAIN_SUBJECTS = ['국어', '영어', '수학', '논술'];
+
 function renderSummary() {
   const tc = CONFIG.TEXTBOOK_COLS;
   const subjectMap = {};
+  let mainSubjectTotal = 0; // 국어/영어/수학/논술 합계
   let totalAmount = 0;
   let sdaiAmount  = 0;
   let totalCount  = 0;
 
-  regularBooks.forEach((book, idx) => {
-    if (!receiveStates.regular[idx]) return;
-    const price   = Number(book[tc.PRICE]) || 0;
-    const subject = String(book[tc.SUBJECT] || '기타').trim();
-    subjectMap[subject] = (subjectMap[subject] || 0) + price;
+  function addToMap(subject, price, suffix) {
+    const isMain = MAIN_SUBJECTS.some(s => subject.includes(s));
+    if (isMain) {
+      mainSubjectTotal += price;
+    } else {
+      const key = suffix ? `${subject} ${suffix}` : subject;
+      subjectMap[key] = (subjectMap[key] || 0) + price;
+    }
     totalAmount += price;
     totalCount++;
+  }
+
+  regularBooks.forEach((book, idx) => {
+    if (!receiveStates.regular[idx]) return;
+    addToMap(String(book[tc.SUBJECT] || '기타').trim(), Number(book[tc.PRICE]) || 0, null);
+  });
+
+  previousBooks.forEach((book, idx) => {
+    if (!receiveStates.prev[idx]) return;
+    addToMap(String(book[tc.SUBJECT] || '기타').trim(), Number(book[tc.PRICE]) || 0, '(변경 전)');
   });
 
   sdaiBooks.forEach((book, idx) => {
     if (!receiveStates.sdai[idx]) return;
-    const price   = Number(book[tc.PRICE]) || 0;
-    const subject = String(book[tc.SUBJECT] || '기타').trim() + ' (시대인재)';
-    subjectMap[subject] = (subjectMap[subject] || 0) + price;
+    const price = Number(book[tc.PRICE]) || 0;
+    // 시대인재는 별도 합계에만 포함, 과목별에는 표시 안 함
     sdaiAmount  += price;
     totalAmount += price;
     totalCount++;
   });
 
+  // 수강반 합계 행 맨 위에 추가
+  const orderedEntries = [];
+  if (mainSubjectTotal > 0) {
+    orderedEntries.push(['국어 / 영어 / 수학 / 논술', mainSubjectTotal]);
+  }
+  Object.entries(subjectMap).sort((a, b) => b[1] - a[1]).forEach(e => orderedEntries.push(e));
+
   document.getElementById('subjectSummary').innerHTML =
-    Object.entries(subjectMap).length
-      ? Object.entries(subjectMap).sort((a, b) => b[1] - a[1]).map(([subject, amount]) => `
+    orderedEntries.length
+      ? orderedEntries.map(([subject, amount]) => `
           <div class="summary-row">
             <span class="summary-label">${subject}</span>
             <span class="summary-value">${formatMoney(amount)}</span>
@@ -354,7 +439,7 @@ function calcFinal() {
 
 // ── 화면 표시 ──────────────────────────────────────────────────
 function showResultSections() {
-  ['textbookSection', 'sdaiSection', 'summarySection', 'actionBar'].forEach(id => {
+  ['textbookSection', 'prevSection', 'sdaiSection', 'summarySection', 'actionBar'].forEach(id => {
     document.getElementById(id).classList.add('visible');
   });
 }
@@ -366,7 +451,8 @@ function resetAll() {
   currentStudent = null;
   regularBooks   = [];
   sdaiBooks      = [];
-  ['regular', 'sdai'].forEach(g => {
+  previousBooks  = [];
+  ['regular', 'sdai', 'prev'].forEach(g => {
     receiveStates[g] = {};
     noteValues[g]    = {};
   });
@@ -377,15 +463,17 @@ function resetAll() {
   document.getElementById('finalAmount').textContent = '₩0';
   document.getElementById('classChangeSection').style.display = 'none';
 
-  ['textbookSection', 'sdaiSection', 'summarySection', 'actionBar'].forEach(id => {
+  ['textbookSection', 'prevSection', 'sdaiSection', 'summarySection', 'actionBar'].forEach(id => {
     document.getElementById(id).classList.remove('visible');
   });
   document.getElementById('studentCard').classList.remove('visible');
   document.getElementById('textbookCount').textContent = '0';
   document.getElementById('sdaiCount').textContent     = '0';
+  document.getElementById('prevCount').textContent     = '0';
 
   renderTableEmpty('textbookTableBody', 10, '학번을 입력하고 조회하면 교재 내역이 표시됩니다');
   renderTableEmpty('sdaiTableBody',     9,  '시대인재 콘텐츠 내역이 없습니다');
+  renderTableEmpty('prevTableBody',     11, '수강변경 전 교재 내역이 없습니다');
 
   showToast('초기화되었습니다.');
 }

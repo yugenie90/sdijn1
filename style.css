@@ -296,7 +296,7 @@ a { text-decoration: none; color: inherit; }
 
 .settlement-main {
   position: relative; z-index: 1;
-  max-width: 900px;
+  max-width: 990px;
   margin: 0 auto;
   padding: 40px 28px 80px;
 }
