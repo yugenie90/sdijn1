@@ -15,6 +15,7 @@ const CONFIG = {
     ID:          '학번',
     STUDENT_ID:  '학생ID',
     NAME:        '학생명',
+    BUILDING: '관',
     CLASS:       '반',
     PARENT_TEL:  '학부모연락처',
     STUDENT_TEL: '학생연락처',
