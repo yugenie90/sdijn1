@@ -851,12 +851,20 @@ a { text-decoration: none; color: inherit; }
   body { background: #fff; }
 }
 
-/* Print-only header */
-.print-header {
-  display: none;
+/* 인쇄용 체크 표시 — 화면에서는 숨김, 인쇄 시 표시 */
+.print-check { display: none; }
+
+@media print {
+  .print-check {
+    display: inline;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .flag-checkbox { display: none !important; }
 }
 
-/* Responsive */
+/* Print-only header */
+.print-header { display: none; }
 @media (max-width: 640px) {
   .search-bar { flex-direction: column; }
   .summary-grid { grid-template-columns: 1fr; }

@@ -287,6 +287,7 @@ function renderPreviousTable(books) {
         <input type="checkbox" class="flag-checkbox"
           ${checked ? 'checked' : ''}
           onchange="toggleReceive('prev', ${idx}, this.checked)">
+        <span class="print-check">${checked ? '✓' : '✗'}</span>
       </td>
       <td class="date-cell">${book[tc.DATE_START] || '-'}</td>
       <td class="date-cell">${book[tc.DATE_END]   || '-'}</td>
@@ -356,6 +357,7 @@ function renderTextbookTable(tbodyId, books, group, colspan, isSdai) {
         <input type="checkbox" class="flag-checkbox"
           ${checked ? 'checked' : ''}
           onchange="toggleReceive('${group}', ${idx}, this.checked)">
+        <span class="print-check">${checked ? '✓' : '✗'}</span>
       </td>
       <td class="date-cell">${book[tc.DATE_START] || '-'}</td>
       <td class="date-cell">${book[tc.DATE_END]   || '-'}</td>
@@ -412,7 +414,7 @@ function renderSummary() {
     }
   }
 
-  // 강사교재 (regular + prev)
+  // 강사교재 (regular) + 변경 전 교재 (prev) — isSdai 여부로 분기
   const teacherMainRef = { val: 0 };
   regularBooks.forEach((book, idx) => {
     if (!receiveStates.regular[idx]) return;
@@ -424,18 +426,26 @@ function renderSummary() {
   previousBooks.forEach((book, idx) => {
     if (!receiveStates.prev[idx]) return;
     const price = Number(book[tc.PRICE]) || 0;
-    addToMap(teacherMap, teacherMainRef, String(book[tc.SUBJECT] || '기타').trim(), price, '(변경 전)');
-    teacherTotal += price;
+    if (book['_isSdai']) {
+      // 변경 전 시대인재 → 시대인재 섹션으로
+      const key = '시대인재 (변경 전)';
+      sdaiMap[key] = (sdaiMap[key] || 0) + price;
+      sdaiTotal += price;
+    } else {
+      addToMap(teacherMap, teacherMainRef, String(book[tc.SUBJECT] || '기타').trim(), price, '(변경 전)');
+      teacherTotal += price;
+    }
     totalCount++;
   });
   teacherMain = teacherMainRef.val;
 
-  // 시대인재 콘텐츠
+  // 시대인재 콘텐츠 — 과목이 기타면 "시대인재"로 표시
   const sdaiMainRef = { val: 0 };
   sdaiBooks.forEach((book, idx) => {
     if (!receiveStates.sdai[idx]) return;
-    const price = Number(book[tc.PRICE]) || 0;
-    addToMap(sdaiMap, sdaiMainRef, String(book[tc.SUBJECT] || '기타').trim(), price, null);
+    const price   = Number(book[tc.PRICE]) || 0;
+    const subject = String(book[tc.SUBJECT] || '').trim() || '시대인재';
+    addToMap(sdaiMap, sdaiMainRef, subject, price, null);
     sdaiTotal += price;
     totalCount++;
   });
