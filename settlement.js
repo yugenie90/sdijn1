@@ -281,12 +281,12 @@ function renderTextbookTable(tbodyId, books, group, colspan, isSdai) {
       <td class="date-cell">${book[tc.DATE_START] || '-'}</td>
       <td class="date-cell">${book[tc.DATE_END]   || '-'}</td>
       <td class="code-cell">${book[tc.CODE]        || '-'}</td>
-      <td><strong>${book[tc.NAME]    || '-'}</strong></td>
+      <td class="cell-name"><strong>${book[tc.NAME]    || '-'}</strong></td>
       <td>${book[tc.SUBJECT] || '-'}</td>
       <td>${book[tc.CLASS]   || '-'}</td>
       ${!isSdai ? `<td>${book[tc.TEACHER] || '-'}</td>` : ''}
       <td class="price-cell" style="text-align:right;">${price.toLocaleString()}원</td>
-      <td>
+      <td class="cell-note">
         <input type="text" class="note-input" placeholder="비고..."
           value="${note}"
           onchange="noteValues['${group}'][${idx}] = this.value">

@@ -575,12 +575,11 @@ a { text-decoration: none; color: inherit; }
 }
 
 .data-table th {
-  padding: 10px 14px;
+  padding: 10px 12px;
   text-align: left;
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
   background: #fafaf8;
   border-bottom: 1px solid var(--border);
@@ -588,10 +587,20 @@ a { text-decoration: none; color: inherit; }
 }
 
 .data-table td {
-  padding: 12px 14px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  white-space: nowrap;
 }
+
+/* 교재명·비고는 줄바꿈 허용 */
+.data-table td.cell-name { white-space: normal; min-width: 180px; max-width: 280px; }
+.data-table td.cell-note { white-space: normal; min-width: 130px; }
+
+/* 컬럼 최소 너비 */
+.data-table td.date-cell  { min-width: 88px;  }
+.data-table td.code-cell  { min-width: 100px; }
+.data-table td.price-cell { min-width: 75px;  }
 
 .data-table tr:last-child td { border-bottom: none; }
 
