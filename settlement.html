@@ -22,20 +22,18 @@
       </div>
       <div class="header-right">
         <span class="header-date" id="currentDate"></span>
-        <button class="btn-back" onclick="location.href='index.html'">
-          ← 메인으로
-        </button>
+        <button class="btn-back" onclick="location.href='index.html'">← 메인으로</button>
       </div>
     </div>
   </header>
 
   <main class="settlement-main">
 
-    <!-- 인쇄용 헤더 (화면에는 안보임) -->
+    <!-- 인쇄용 헤더 -->
     <div class="print-header">
-      <h1 style="font-size:1.4rem; font-weight:700; margin-bottom:4px;">퇴원생 교재 정산서</h1>
-      <p style="font-size:0.85rem; color:#666;" id="printDate"></p>
-      <hr style="margin:12px 0; border-color:#ccc;">
+      <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:4px;">퇴원생 교재 정산서</h1>
+      <p style="font-size:0.85rem;color:#666;" id="printDate"></p>
+      <hr style="margin:12px 0;border-color:#ccc;">
     </div>
 
     <!-- 페이지 타이틀 -->
@@ -51,11 +49,7 @@
         <span class="settings-toggle-icon" id="settingsIcon">▼</span>
       </button>
       <div class="settings-body" id="settingsBody">
-        <p class="settings-hint">
-          Google Apps Script Web App URL을 입력하세요.
-          설정 방법은 함께 제공된 <strong>README.md</strong>를 참고하세요.
-          URL은 브라우저에 자동으로 저장됩니다.
-        </p>
+        <p class="settings-hint">Google Apps Script Web App URL을 입력하세요. URL은 브라우저에 자동으로 저장됩니다.</p>
         <div class="input-group">
           <input type="url" class="input-full" id="scriptUrl"
             placeholder="https://script.google.com/macros/s/..."
@@ -74,7 +68,7 @@
       <div class="form-field">
         <label class="form-label">학번</label>
         <input type="text" class="input-main" id="studentIdInput"
-          placeholder="학번을 입력하세요 (예: 2025001)"
+          placeholder="학번을 입력하세요"
           onkeydown="if(event.key==='Enter') searchStudent()">
       </div>
       <button class="btn btn-primary btn-icon" id="searchBtn" onclick="searchStudent()">
@@ -89,30 +83,49 @@
     <div class="student-card" id="studentCard">
       <div class="student-card-header">
         <span class="student-card-title">학생 정보</span>
-        <span id="studentName" style="font-size:1rem; font-weight:700; color:var(--navy);"></span>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span id="statusBadge"></span>
+          <span id="studentName" style="font-size:1rem;font-weight:700;color:var(--navy);"></span>
+        </div>
       </div>
       <div class="student-info-grid" id="studentInfoGrid"></div>
+
+      <!-- 수강변경내역 -->
+      <div id="classChangeSection" style="display:none; margin-top:18px;">
+        <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">
+          수강 변경 내역
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="classChangeTable">
+            <thead>
+              <tr>
+                <th>변경 적용일</th>
+                <th>기존 과목</th>
+                <th>변경 과목</th>
+                <th>시간표 반영</th>
+              </tr>
+            </thead>
+            <tbody id="classChangeTableBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
-    <!-- 교재 배부 내역 테이블 -->
+    <!-- 일반 교재 배부 내역 -->
     <div class="section-card" id="textbookSection">
       <div class="section-card-header">
         <span class="section-card-title">
           교재 배부 내역
           <span class="count-badge" id="textbookCount">0</span>
         </span>
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-outline btn-sm" onclick="toggleFlaggedOnly()" id="flagFilterBtn">
-            이상 내역만 보기
-          </button>
-        </div>
       </div>
       <div class="table-wrap">
         <table class="data-table" id="textbookTable">
           <thead>
             <tr>
-              <th style="width:42px;">이상</th>
-              <th>배부일</th>
+              <th style="width:56px;text-align:center;">배부<br>여부</th>
+              <th>배부시작일</th>
+              <th>배부종료일</th>
               <th>교재코드</th>
               <th>교재명</th>
               <th>과목</th>
@@ -123,14 +136,47 @@
             </tr>
           </thead>
           <tbody id="textbookTableBody">
+            <tr><td colspan="10">
+              <div class="table-placeholder">
+                <div class="placeholder-icon">📚</div>
+                <p>학번을 입력하고 조회하면 교재 내역이 표시됩니다</p>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 시대인재 콘텐츠 -->
+    <div class="section-card" id="sdaiSection">
+      <div class="section-card-header">
+        <span class="section-card-title" style="color:var(--amber-dark);">
+          🏫 시대인재 콘텐츠
+          <span class="count-badge" style="background:var(--amber);" id="sdaiCount">0</span>
+        </span>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="sdaiTable">
+          <thead>
             <tr>
-              <td colspan="9">
-                <div class="table-placeholder">
-                  <div class="placeholder-icon">📚</div>
-                  <p>학번을 입력하고 조회하면 교재 내역이 표시됩니다</p>
-                </div>
-              </td>
+              <th style="width:56px;text-align:center;">배부<br>여부</th>
+              <th>배부시작일</th>
+              <th>배부종료일</th>
+              <th>교재코드</th>
+              <th>교재명</th>
+              <th>과목</th>
+              <th>반</th>
+              <th style="text-align:right;">가격</th>
+              <th>비고</th>
             </tr>
+          </thead>
+          <tbody id="sdaiTableBody">
+            <tr><td colspan="9">
+              <div class="table-placeholder">
+                <div class="placeholder-icon">📭</div>
+                <p>시대인재 콘텐츠 내역이 없습니다</p>
+              </div>
+            </td></tr>
           </tbody>
         </table>
       </div>
@@ -142,47 +188,41 @@
 
       <div class="summary-grid">
         <div>
-          <div class="summary-row">
-            <span class="summary-label">총 교재 수</span>
-            <span class="summary-value" id="sumTotalCount">0권</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">이상 내역 수</span>
-            <span class="summary-value red" id="sumFlagCount">0건</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">정상 교재 합계</span>
-            <span class="summary-value" id="sumNormalAmount">₩0</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">이상 교재 합계</span>
-            <span class="summary-value red" id="sumFlagAmount">₩0</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">전체 교재 합계</span>
+          <!-- 과목별 합계 (동적 생성) -->
+          <div id="subjectSummary"></div>
+          <div class="summary-row" style="margin-top:8px;border-top:2px solid var(--border);">
+            <span class="summary-label" style="font-weight:700;">전체 합계</span>
             <span class="summary-value" id="sumTotalAmount">₩0</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">시대인재 콘텐츠 합계</span>
+            <span class="summary-value" id="sumSdaiAmount">₩0</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">총 교재 수 (배부 체크된 것)</span>
+            <span class="summary-value" id="sumTotalCount">0권</span>
           </div>
         </div>
 
         <div>
           <div class="refund-area">
-            <p style="font-size:0.78rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#987020; margin-bottom:12px;">환불 처리</p>
-            <div style="display:flex; flex-direction:column; gap:10px;">
+            <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#987020;margin-bottom:12px;">환불 처리</p>
+            <div style="display:flex;flex-direction:column;gap:10px;">
               <div class="refund-row">
                 <span class="refund-label">환불 금액</span>
                 <div class="refund-inputs">
                   <input type="number" class="input-money" id="refundAmount" placeholder="0" min="0" oninput="calcFinal()">
-                  <span style="font-size:0.85rem; color:var(--navy);">원</span>
+                  <span style="font-size:0.85rem;color:var(--navy);">원</span>
                 </div>
               </div>
               <div class="refund-row">
                 <span class="refund-label">공제 금액</span>
                 <div class="refund-inputs">
                   <input type="number" class="input-money" id="deductAmount" placeholder="0" min="0" oninput="calcFinal()">
-                  <span style="font-size:0.85rem; color:var(--navy);">원</span>
+                  <span style="font-size:0.85rem;color:var(--navy);">원</span>
                 </div>
               </div>
-              <div style="font-size:0.75rem; color:#987020; line-height:1.4;">
+              <div style="font-size:0.75rem;color:#987020;line-height:1.4;">
                 ※ 환불 금액에서 공제 금액을 뺀 최종 환불액이 계산됩니다
               </div>
             </div>
@@ -195,12 +235,10 @@
         </div>
       </div>
 
-      <!-- 메모 -->
       <div style="margin-top:12px;">
         <label class="form-label">정산 메모</label>
-        <textarea
-          id="settlementMemo"
-          style="width:100%; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); font-family:var(--font-body); font-size:0.85rem; resize:vertical; min-height:60px; background:var(--bg);"
+        <textarea id="settlementMemo"
+          style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font-body);font-size:0.85rem;resize:vertical;min-height:60px;background:var(--bg);"
           placeholder="특이사항, 처리 내용 등을 기록하세요..."></textarea>
       </div>
     </div>
