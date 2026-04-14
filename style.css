@@ -850,6 +850,8 @@ a { text-decoration: none; color: inherit; }
   
   @page { size: A4 landscape; margin: 10mm; }
 
+  thead { display: table-header-group; }  /* ← 페이지마다 헤더 반복 */
+
   .data-table th.col-code,
   .data-table td.code-cell { display: none !important; }
 
