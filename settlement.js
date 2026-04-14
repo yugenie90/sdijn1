@@ -299,9 +299,11 @@ function renderPreviousTable(books) {
       <td style="font-size:0.75rem;color:var(--text-muted);">${book['_changeLabel'] || '-'}</td>
       <td class="price-cell" style="text-align:right;">${price.toLocaleString()}원</td>
       <td class="cell-note">
-        <input type="text" class="note-input" placeholder="비고..."
+        <input type="text" class="note-input"
+          placeholder="비고..."
           value="${note}"
-          onchange="noteValues['prev'][${idx}] = this.value">
+          onchange="noteValues['prev'][${idx}] = this.value; this.nextElementSibling.textContent = this.value;">
+        <span class="note-print" style="display:none;">${note}</span>
       </td>
     </tr>`;
   }).join('');
@@ -372,7 +374,8 @@ function renderTextbookTable(tbodyId, books, group, colspan, isSdai) {
           placeholder="비고..."
           value="${autoNote}"
           style="${autoNote === '반납가능' ? 'color:var(--green);font-weight:600;' : ''}"
-          onchange="noteValues['${group}'][${idx}] = this.value">
+          onchange="noteValues['${group}'][${idx}] = this.value; this.nextElementSibling.textContent = this.value;">
+        <span class="note-print" style="display:none;">${autoNote}</span>
       </td>
     </tr>`;
   }).join('');

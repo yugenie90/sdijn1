@@ -828,7 +828,6 @@ a { text-decoration: none; color: inherit; }
   .search-bar,
   .action-bar,
   .flag-checkbox,
-  .note-input,
   .refund-inputs,
   .btn,
   .toast { display: none !important; }
@@ -846,7 +845,7 @@ a { text-decoration: none; color: inherit; }
 
   .data-table th, .data-table td { padding: 7px 10px; font-size: 0.8rem; }
 
-  .note-print { font-size: 0.78rem; color: #666; }
+  .note-print { display: inline !important; font-size: 0.78rem; color: #333; }
   
   @page { size: A4 landscape; margin: 10mm; }
 
